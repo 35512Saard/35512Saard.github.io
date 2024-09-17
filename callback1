@@ -1,0 +1,111 @@
+var channelToken = "XXsOWr3UKHY1JTQjxfI7Kl+Q2+h/xchYM8rjpnf2P0PV77mqbBKXz+7d5wd2D1aLNGZsVaSY8pS1R5swRm+v8nbuWZK3xE9+240I81Y7Bhk6N+NSB6GwZmg0UaUYwgBUj89Qyqc10XOcOWhuz7rWwQdB04t89/1O/w1cDnyilFU=";
+var ss = SpreadsheetApp.openByUrl("https://docs.google.com/spreadsheets/d/1-yuUhdVu7HJX9RAiXQTyJ6AU31aoB6ZcNn-6Q0HrUH4/edit");
+var sheet = ss.getSheetByName("ข้อมูลผู้ใช้งาน"); // เปลี่ยนชื่อแผ่นงานที่ใช้ตรวจสอบอีเมล
+
+function replyMsg(replyToken, mess, channelToken) {
+  var url = 'https://api.line.me/v2/bot/message/reply';
+  var opt = {
+    'headers': {
+      'Content-Type': 'application/json; charset=UTF-8',
+      'Authorization': 'Bearer ' + channelToken,
+    },
+    'method': 'post',
+    'payload': JSON.stringify({
+      'replyToken': replyToken,
+      'messages': mess
+    })
+  };
+  UrlFetchApp.fetch(url, opt);
+}
+
+function notiMsg(msg, notitok) {
+  var url = 'https://notify-api.line.me/api/notify';
+  var opt = {
+    'method': 'post',
+    'contentType': 'application/x-www-form-urlencoded',
+    'headers': { 'Authorization': 'Bearer ' + notitok },
+    'payload': { 'message': msg }
+  };
+  UrlFetchApp.fetch(url, opt);
+}
+
+function doGet(e) {
+  var code = e.parameter.code;
+  var state = e.parameter.state;
+  var uid = e.parameter.uid;
+  var uname = e.parameter.uname;
+  var formData = {
+    'grant_type': 'authorization_code',
+    'code': code,
+    'redirect_uri': 'https://itchampclub.github.io/check.std/link.html',
+    'client_id': 'vF9AoT*******MV8EoW6t8',
+    'client_secret': 'ExgbZDYXxxoDWBA**********V76EQi8PR'
+  };
+  var options = {
+    'method': 'post',
+    'payload': formData
+  };
+  var gettext = UrlFetchApp.fetch('https://notify-bot.line.me/oauth/token', options);
+  var profiledata = JSON.parse(gettext.getContentText());
+  var tokenn = profiledata.access_token;
+
+  var emailList = sheet.getRange(2, 10, sheet.getLastRow() - 1, 1).getValues(); // ดึงข้อมูลอีเมลในคอลัมน์ที่ 10
+  var emailFound = false;
+
+  for (var i = 0; i < emailList.length; i++) {
+    if (state == emailList[i][0]) {
+      emailFound = true;
+      sheet.getRange(i + 2, 1).setValue(uid);
+      sheet.getRange(i + 2, 2).setValue(uname);
+      sheet.getRange(i + 2, 6).setValue(tokenn);
+    }
+  }
+
+  if (emailFound) {
+    var result = { "desc": "อีเมลล์ถูกต้อง" };
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  } else {
+    var result = { "desc": "อีเมลล์ของท่านไม่ถูกต้อง" };
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  var value = JSON.parse(e.postData.contents);
+  var events = value.events;
+  var event = events[0];
+  var type = event.type;
+  var replyToken = event.replyToken;
+
+  switch (type) {
+    case 'message':
+      var messageType = event.message.type;
+      var messageText = event.message.text;
+
+      if (messageType === "text") {
+        var email = messageText.trim();
+        var emailList = sheet.getRange(2, 10, sheet.getLastRow() - 1, 1).getValues(); // ดึงข้อมูลอีเมลในคอลัมน์ที่ 10
+        var emailFound = false;
+
+        for (var i = 0; i < emailList.length; i++) {
+          if (email === emailList[i][0]) {
+            emailFound = true;
+            break;
+          }
+        }
+
+        var responseMessage;
+        if (emailFound) {
+          responseMessage = [{ "type": "text", "text": "อีเมลล์ถูกต้อง" }];
+        } else {
+          responseMessage = [{ "type": "text", "text": "อีเมลล์ของท่านไม่ถูกต้อง" }];
+        }
+
+        // ตอบกลับผู้ใช้ผ่าน LINE
+        replyMsg(replyToken, responseMessage, channelToken);
+      }
+      break;
+    default:
+      break;
+  }
+}
