@@ -1,0 +1,5 @@
+function doPost(e) {
+  var params = JSON.parse(e.postData.contents);
+  Logger.log(params); // เก็บข้อมูลหรือประมวลผลที่นี่
+  return ContentService.createTextOutput("Success");
+}
